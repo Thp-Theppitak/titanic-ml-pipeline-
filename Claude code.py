@@ -1,0 +1,109 @@
+import pandas as pd 
+from sklearn.ensemble import RandomForestClassifier
+import sklearn.model_selection 
+from sklearn.model_selection import cross_val_score, train_test_split
+import matplotlib.pyplot as plt
+
+
+class TitanicPipeline:
+    """End-to-end Titanic ML pipeline."""
+
+    FEATURES = ['Pclass', 'Age', 'SibSp', 'Fare']
+    TARGET = 'Survived'
+
+    def __init__(self, n_estimators: int = 100):
+        self.n_estimators = n_estimators
+        self.model = None
+        self.is_fitted = False
+        self.metrics = {}
+
+    def _preprocess(self, df):
+        df = df.copy()
+        df['Age'] = df['Age'].fillna(df['Age'].median())
+        df['Fare'] = df['Fare'].fillna(df['Fare'].median())
+        return df[self.FEATURES]
+    
+    def fit(self, df):
+        X = self._preprocess(df)
+        Y = df[self.TARGET]
+        self.model = RandomForestClassifier(
+            n_estimators=self.n_estimators, random_state=42)
+        self.model.fit(X, Y)
+        self.is_fitted = True
+
+        cv = cross_val_score(self.model, X, Y, cv=5)
+        self.metrics_ = {
+            'cv_mean': round(cv.mean(), 4),
+            'cv_std': round(cv.std(), 4)
+
+        }
+        return self # คืน self เพื่อ chain ได้
+    
+    def predict(self, df):
+        if not self.is_fitted:
+            raise ValueError("Call fit() before predict().")
+        X = self._preprocess(df)
+        return self.model.predict(X).tolist()
+
+    def summary(self):
+        print(f"Model : RandomForestClassifier with {self.n_estimators} trees")
+        print(f"Fitted: {self.is_fitted}")
+        if self.metrics_:
+            print(f"CV     : {self.metrics_['cv_mean']:.3f} ± {self.metrics_['cv_std']:.3f}")
+
+    def get_feature_importances(self):
+        if not self.is_fitted:
+            raise RuntimeError("Call fit() before get_feature_importances().")
+        importances = self.model.feature_importances_
+        result = dict(zip(self.FEATURES, importances))
+        return dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
+    
+    def __repr__(self):
+        state = "fitted" if self.is_fitted else "not fitted"
+        return f"TitanicPipeline(state={state}, n_estimators={self.n_estimators})"
+    
+    def get_feature_importance_plot(self):
+        if not self.is_fitted:
+            raise RuntimeError("Call fit() before get_feature_importance_plot().")
+        
+        # จับคู่ชื่อ feature กับตัวเลข importance
+        importances = self.get_feature_importances()
+        result = dict(zip(self.FEATURES, importances))
+
+        # เรียงจากมากไปน้อย
+        result  = dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
+
+        # วาดกราฟ
+        plt.figure(figsize=(8, 6))
+        plt.barh(list(result.keys()), list(result.values()), color='skyblue')
+        plt.xlabel('Feature Importance')
+        plt.title('Feature Importance Plot')
+        plt.show()
+
+        return result
+
+# ───────────────────────────────────────────
+# ส่วนที่รันจริง — เขียนไว้ด้านล่าง class เสมอ
+# ───────────────────────────────────────────
+
+# 1. โหลด dataset จาก URL (ไม่ต้องดาวน์โหลดไฟล์)
+url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
+df = pd.read_csv(url)
+
+# 2. แบ่ง train/test
+train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
+
+# 3. สร้าง pipeline และ train
+pipeline = TitanicPipeline(n_estimators=200)
+pipeline.fit(train_df)
+
+# 4. สรุปผล
+pipeline.summary()
+pipeline.get_feature_importance_plot()
+
+print("\nFeature Importances:")
+print(pipeline.get_feature_importances())
+
+# 5. ทำนายผล
+predictions = pipeline.predict(test_df)
+print(f"\nตัวอย่าง predictions 100 ตัวแรก: {predictions[:100]}")
