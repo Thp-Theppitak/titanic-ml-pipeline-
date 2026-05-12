@@ -1,6 +1,7 @@
 import pandas as pd 
 from sklearn.ensemble import RandomForestClassifier
 import sklearn.model_selection 
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score, train_test_split
 import matplotlib.pyplot as plt
 
@@ -11,11 +12,17 @@ class TitanicPipeline:
     FEATURES = ['Pclass', 'Age', 'SibSp', 'Fare']
     TARGET = 'Survived'
 
-    def __init__(self, n_estimators: int = 100):
-        self.n_estimators = n_estimators
-        self.model = None
-        self.is_fitted = False
-        self.metrics = {}
+    def __init__(self, model_type: str = 'forest', n_estimators: int = 200):
+        self.model_type = model_type
+        self.is_fitted = False 
+        self.metrics_ = {}
+
+        if model_type == 'forest': 
+            self.model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
+        elif model_type == 'logistic':
+            self.model = LogisticRegression(max_iter=1000, random_state=42)
+        else:
+            raise ValueError(f"Unknown model_type: {model_type}")
 
     def _preprocess(self, df):
         df = df.copy()
@@ -26,8 +33,6 @@ class TitanicPipeline:
     def fit(self, df):
         X = self._preprocess(df)
         Y = df[self.TARGET]
-        self.model = RandomForestClassifier(
-            n_estimators=self.n_estimators, random_state=42)
         self.model.fit(X, Y)
         self.is_fitted = True
 
@@ -46,8 +51,8 @@ class TitanicPipeline:
         return self.model.predict(X).tolist()
 
     def summary(self):
-        print(f"Model : RandomForestClassifier with {self.n_estimators} trees")
-        print(f"Fitted: {self.is_fitted}")
+        print(f"Model  : {self.model_type}")
+        print(f"Fitted : {self.is_fitted}")
         if self.metrics_:
             print(f"CV     : {self.metrics_['cv_mean']:.3f} ± {self.metrics_['cv_std']:.3f}")
 
@@ -107,3 +112,8 @@ print(pipeline.get_feature_importances())
 # 5. ทำนายผล
 predictions = pipeline.predict(test_df)
 print(f"\nตัวอย่าง predictions 100 ตัวแรก: {predictions[:100]}")
+
+print("\n=== Logistic Regression ===")
+logistic = TitanicPipeline(model_type="logistic")
+logistic.fit(train_df)
+logistic.summary()
