@@ -86,6 +86,28 @@ class TitanicPipeline:
         plt.show()
 
         return result
+    
+    @classmethod
+    def compare_models(cls, df, model_types=None):
+        """"เปรียบเทียบหลาย model แล้วคืน ranked results"""
+        model_types = model_types or ["forest", "logistic"]
+        pipelines = [cls(model_type=m).fit(df) for m in model_types]
+        results = {
+            p.model_type: {
+                "cv_mean": p.metrics_["cv_mean"],
+                "cv_std": p.metrics_["cv_std"]
+            }
+            for p in pipelines
+        }
+        ranked = sorted(results.items(),
+                        key=lambda x: x[1]["cv_mean"],
+                        reverse=True)
+        print("Model Comparison:")
+        for rank, (name, metrics) in enumerate(ranked, 1):
+            print(f"#{rank} {name}: {metrics['cv_mean']:.3f} ± {metrics['cv_std']:.3f}")
+        best = ranked[0][0]
+        print(f"\nBest model: {best}")
+        return dict(ranked)
 
 # ───────────────────────────────────────────
 # ส่วนที่รันจริง — เขียนไว้ด้านล่าง class เสมอ
@@ -101,6 +123,7 @@ train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
 # 3. สร้าง pipeline และ train
 pipeline = TitanicPipeline(n_estimators=200)
 pipeline.fit(train_df)
+results = TitanicPipeline.compare_models(train_df)
 
 # 4. สรุปผล
 pipeline.summary()
@@ -113,7 +136,3 @@ print(pipeline.get_feature_importances())
 predictions = pipeline.predict(test_df)
 print(f"\nตัวอย่าง predictions 100 ตัวแรก: {predictions[:100]}")
 
-print("\n=== Logistic Regression ===")
-logistic = TitanicPipeline(model_type="logistic")
-logistic.fit(train_df)
-logistic.summary()
