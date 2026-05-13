@@ -1,16 +1,20 @@
+import sys
+import os 
 import pandas as pd 
 from sklearn.ensemble import RandomForestClassifier
 import sklearn.model_selection 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score, train_test_split
 import matplotlib.pyplot as plt
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import CONFIG
 
 
 class TitanicPipeline:
     """End-to-end Titanic ML pipeline."""
 
-    FEATURES = ['Pclass', 'Age', 'SibSp', 'Fare']
-    TARGET = 'Survived'
+    FEATURES = CONFIG["features"]
+    TARGET = CONFIG["target"]
 
     def __init__(self, model_type: str = 'forest', n_estimators: int = 200):
         self.model_type = model_type
@@ -59,6 +63,12 @@ class TitanicPipeline:
     def get_feature_importances(self):
         if not self.is_fitted:
             raise RuntimeError("Call fit() before get_feature_importances().")
+    
+    # Logistic Regression ไม่มี feature_importances_
+        if self.model_type != "forest":
+            print(f"Feature importance ใช้ได้แค่กับ Random Forest ครับ")
+            print(f"Model ปัจจุบัน: {self.model_type}")    
+            return {}
         importances = self.model.feature_importances_
         result = dict(zip(self.FEATURES, importances))
         return dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
@@ -74,6 +84,9 @@ class TitanicPipeline:
         # จับคู่ชื่อ feature กับตัวเลข importance
         importances = self.get_feature_importances()
         result = dict(zip(self.FEATURES, importances))
+        result = self.get_feature_importances()
+        if not result:
+            return
 
         # เรียงจากมากไปน้อย
         result  = dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
@@ -114,14 +127,14 @@ class TitanicPipeline:
 # ───────────────────────────────────────────
 
 # 1. โหลด dataset จาก URL (ไม่ต้องดาวน์โหลดไฟล์)
-url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
+url = CONFIG["data_path"]
 df = pd.read_csv(url)
 
 # 2. แบ่ง train/test
-train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
+train_df, test_df = train_test_split(df, test_size=CONFIG["test_size"], random_state=CONFIG["random_state"])
 
 # 3. สร้าง pipeline และ train
-pipeline = TitanicPipeline(n_estimators=200)
+pipeline = TitanicPipeline(n_estimators=CONFIG["n_estimators"], model_type=CONFIG["model_type"])
 pipeline.fit(train_df)
 results = TitanicPipeline.compare_models(train_df)
 
